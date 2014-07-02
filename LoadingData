@@ -1,0 +1,65 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Jul 01 23:11:27 2014
+
+@author: Weizhi
+"""
+import scipy.io
+import numpy as np
+import os
+import pylab as pl
+import math
+## get the name 
+path = 'C:\Users\Weizhi\Desktop\Volumes\Seagate\seizure_detection\competition_data\clips\Patient_1'
+classTypepath = os.listdir('C:\Users\Weizhi\Desktop\Volumes\Seagate\seizure_detection\competition_data\clips\Patient_1')
+m = len(classTypepath)
+
+train_1 = []  # has ictal
+train_0 = [] # has interictal
+test = [] # has test
+
+
+for i in range(m):
+    name = classTypepath[i].split('_')
+    for j in range(len(name)):
+        if name[j] == 'ictal':
+            train_1.append(i)
+        elif name[j] == 'interictal':
+            train_0.append(i)                
+        elif name[j]== 'test':
+            test.append(i)
+
+## get the data
+def getdata(ClassType):
+    path = 'C:\Users\Weizhi\Desktop\Volumes\Seagate\seizure_detection\competition_data\clips\Patient_1'
+    classTypepath = os.listdir('C:\Users\Weizhi\Desktop\Volumes\Seagate\seizure_detection\competition_data\clips\Patient_1')
+    data_1 = np.zeros((len(ClassType)),dtype = np.object)
+    for i in range(len(ClassType)):
+        data = scipy.io.loadmat(path+'/'+ classTypepath[ClassType[i]])
+        data_1[i] = data['data']
+    return data_1
+
+data_1 = getdata(train_1)
+data_0 = getdata(train_0)
+test = getdata(test)
+
+# see the data  
+pl.figure()
+pl.plot(data_1[0].T)
+
+pl.figure()
+pl.plot(data_0[0].T)      
+        
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
