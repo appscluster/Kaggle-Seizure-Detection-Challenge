@@ -1,4 +1,4 @@
 Kaggle-Seizure-Detection-Challenge
 ==================================
 
-Signal Processing, Pattern Recogntion
+Python, Signal Processing, Pattern Recogntion (machine learning)
