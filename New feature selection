@@ -1,0 +1,141 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Sep 12 09:36:14 2014
+
+@author: SpectralMD2
+"""
+
+import csv
+import numpy as np
+from sklearn.ensemble import RandomForestClassifier
+from sklearn import cross_validation 
+import pylab as plt
+#%% Loading the data
+def OpenCVS(path):
+    f = open(path,'rb')
+    reader = csv.reader(f)
+    labels = []
+    for row in reader:
+        labels.append(row)
+    f.close()
+    data = np.array(labels)
+    return data
+train_path = 'C:\Users\SpectralMD2\Desktop\Kaggle/training.csv'
+test_path = 'C:/Users/SpectralMD2/Desktop/Kaggle/sorted_test.csv'
+train = OpenCVS(train_path)
+test = OpenCVS(test_path)
+def findfeature(data):
+    Index = []
+    for i in range(data.shape[1]):
+        if train[0,i][0] == 'm':
+            Index.append(i)
+    return Index
+Index = findfeature(train)
+Data = train[1:,Index]
+
+indexTest = findfeature(test)
+TestData = test[1:,Index]
+
+Target= train[1:,train.shape[1]-5:]
+
+feature= np.array([float(i) for i in Data.ravel() ]).reshape(Data.shape)
+target = np.array([float(i) for i in Target.ravel() ]).reshape(Target.shape)
+train = None
+
+#%% data pre-processing, data corss validtion
+from sklearn.cross_validation import StratifiedKFold
+
+skf = StratifiedKFold(target[:,1],5)
+trainIndex = []
+testIndex = []
+count = 0
+for train, test in skf:
+    trainIndex.append(train)
+    testIndex.append(test)
+
+#train = {}
+#test = {}
+#for i in range(5):
+#    test[i] = testIndex[i]
+#    train[i] = trainIndex[i]
+#  
+Index =4
+
+
+trainData = feature[trainIndex[Index],:]
+testData = feature[testIndex[Index],:]
+
+targetTrain = Target[trainIndex[Index]]
+targetTest = Target[testIndex[Index]]
+output = []
+error = []
+Target = target[:,4]  
+
+
+
+
+    
+class pattern:
+    def __init__(self,clf,trainData,testData,targetTrain,targetTest,output,error):
+        self.trainData = trainData
+        self.testData= testData
+        self.targetTrain = targetTrain
+        self.targetTest = targetTest
+        self.clf = clf
+        self.output = []
+        self.error = []
+    
+    def Train(self):
+        """training and test the data"""
+        self.clf.fit(self.trainData,self.targetTrain)
+        
+        for i in range(len(self.testData)):
+            self.output.append(self.clf.predict(self.testData[i,:]))
+            self.error.append(self.targetTest[i]-self.clf.predict(self.testData[i,:]))
+        return self.output,self.error
+    
+    def validation(self):
+        """Plot the error bar"""
+        plt.figure()
+        plt.plot(np.arange(len(self.testData)),self.output,color = 'r',label='Output')
+        plt.plot(np.arange(len(self.testData)),self.targetTest,color = 'b',label = 'True')
+        plt.legend()
+        plt.title('Model validation %s' % self.clf)
+
+
+
+
+#%% data 
+
+
+from sklearn import linear_model
+clf = linear_model.LinearRegression()
+clf_Ridge= linear_model.Ridge(alpha = 0.5)
+clf_bayesian = linear_model.BayesianRidge()
+
+targetTrain = Target[trainIndex[Index]]
+targetTest = Target[testIndex[Index]]
+# Run the code
+a = pattern(clf,trainData,testData,targetTrain,targetTest,output,error)
+a.Train()
+a.validation()
+
+b = pattern(clf_Ridge,trainData,testData,targetTrain,targetTest,output,error)
+b.Train()
+b.validation()
+
+c = pattern(clf_bayesian,trainData,testData,targetTrain,targetTest,output,error)
+c.Train()
+c.validation()
+
+
+plt.figure()
+plt.plot(np.arange(len(a.testData)),a.output,color = 'r',label='Output')
+plt.plot(np.arange(len(a.testData)),a.targetTest,color = 'b',label = 'True')
+plt.plot(np.arange(len(b.testData)),b.output,color = 'k',label = 'Output1')
+plt.plot(np.arange(len(c.testData)),c.output,color = 'g',label = 'Output2')
+plt.legend()
+
+
+
+
