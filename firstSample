@@ -49,7 +49,7 @@ class getData:
     def getdata(self,ClassType):
 
         classTypepath = os.listdir(self.path)
-        ClassType = train_0
+
         for i in range(len(ClassType)):
             data = scipy.io.loadmat(self.path+'/'+ classTypepath[ClassType[i]],struct_as_record=True)
             keys = data.keys()
