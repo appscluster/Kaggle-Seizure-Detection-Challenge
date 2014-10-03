@@ -1,0 +1,207 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Sep 04 12:43:11 2014
+
+@author: Valued Customer
+"""
+#%%import scipy.io
+import numpy as np
+import os
+import pylab as pl
+import math
+import pandas as pd
+import time
+import scipy
+from sklearn import svm
+from sklearn.naive_bayes import GaussianNB
+sample = pd.read_csv('C:/Users/Valued Customer/Desktop/Data/sampleSubmission.csv')
+
+Sample = []
+pathSum = 'C:/Users/Valued Customer/Desktop/Data to Analysis/'
+dogFolder = os.listdir(pathSum)
+count = 0
+
+## get the name 
+def dataClassify(item,pathSum,channels):
+    startTime = time.time()
+    print 'new patients or dogs begin %s' % item
+    path = pathSum + item
+    classTypepath = os.listdir(path)
+    m = len(classTypepath)
+    
+    train_1 = []  # has ictal
+    train_0 = [] # has interictal
+    test = [] # has test
+    
+    
+    for i in range(m):
+        name = classTypepath[i].split('_')
+        for j in range(len(name)):
+            if name[j] == 'preictal': 
+                train_1.append(i)
+            elif name[j] == 'interictal':
+                train_0.append(i)                
+            elif name[j]== 'test':
+                test.append(i)
+    
+    
+    
+    #%% get the data
+    class getData:
+        def __init__(self,data, data_length_sec, sampling_frequency, channels, sequence,Name,path):
+            self.data = data
+            self.time = data_length_sec
+            self.sampleRate = sampling_frequency
+            self.channel = channels
+            self.sequence= sequence
+            self.name = Name
+            self.path = path
+        def getdata(self,ClassType):
+    
+            classTypepath = os.listdir(self.path)
+    #        ClassType = train_0
+            for i in range(len(ClassType)):
+    #            print 'the number is %d' % i
+                data = scipy.io.loadmat(self.path+'/'+ classTypepath[ClassType[i]],struct_as_record=True)
+                keys = data.keys()
+                for item in keys:            
+                    for i in range(len(item)):
+                        curr = item[i:i+7]
+                        if curr == 'segment':
+                            name_1 = item
+                currData = data[name_1]
+                Name_1 = currData.dtype.names
+                for item in Name_1:
+                    if item == self.name[0]:
+                        self.data.append(currData[self.name[0]])
+                    elif item == self.name[1]:
+                        self.time.append(currData[self.name[1]])
+                    elif item ==self.name[2]:
+                        self.sampleRate.append(currData[self.name[2]])
+                    elif item ==self.name[3]:
+                        self.channel.append(currData[self.name[3]])
+                    elif item ==self.name[4]:
+                        self.sequence.append(currData[self.name[4]])   
+    #                else:
+    #                    print 'There is an error in the data'
+                        
+                        
+    Name = ['data', 'data_length_sec', 'sampling_frequency', 'channel', 'sequence']
+    testData = getData([],[],[],[],[],Name,path)
+    testData.getdata(test)
+    
+    
+    trainTrue = getData([],[],[],[],[],Name,path)
+    trainTrue.getdata(train_1)
+    
+    
+    
+    trainFalse = getData([],[],[],[],[],Name,path)
+    trainFalse.getdata(train_0)
+    #data_1 = getdata(train_1) # for predcit
+    #data_0 = getdata(train_0) # for train
+    #test = getdata(test)  # for test
+    #%%  feature extraction, time series analysis
+    import pandas as pd
+    from scipy import signal
+    from scipy.fftpack import fft
+    def showFFT(trainTrue1,index1,dp,channels):
+        for i in range(index1):
+            
+            a = trainTrue1.data[i][0,0]
+            fs = trainTrue1.sampleRate[0][0,0][0][0]
+#            channels = trainTrue1.channel[0][0,0][0][0]
+            timeRecord = 600
+            x = np.linspace(0,timeRecord,num = a.shape[1])
+            
+            #%% do the fft to get the max value
+            N = 1024
+            T  = 1/600
+         
+            yChannel = abs(fft(a,N))
+            maxSave = np.zeros((1,channels*2))
+            maxSave[0,0:channels] = yChannel.argmax(axis=1)*fs/2048 ## find the maximum location
+            maxSave[0,channels:channels*2] = np.amax(yChannel,axis=1)  ## find the maximum value
+            
+            dp.loc[i] = maxSave
+        return dp
+    
+    #%% For all the smaples
+    trueSample = pd.DataFrame(columns= ['channel' + str(i+1) for i in range(channels*2)])
+  
+    falseSample = pd.DataFrame(columns= ['channel' + str(i+1) for i in range(channels*2)])
+ 
+    testSample = pd.DataFrame(columns= ['channel' + str(i+1) for i in range(channels*2)])
+    #%% for each keys, has 6 segments and 16 channels
+    trueSample = showFFT(trainTrue,len(train_1),trueSample,channels)
+    trainTrue = None  
+#    train_1 = None
+    falseSample = showFFT(trainFalse,len(train_0),falseSample,channels)
+    trainFalse = None
+#    train_0 = None
+    testSample = showFFT(testData,len(test),testSample,channels)
+    testData = None
+#    test = None
+
+
+    
+    
+    #%% data 
+    label = pd.DataFrame(columns=['label'])
+    m = len(train_1)
+    n = len(train_0)
+    
+    for i in range(m+n):
+        if i<m:
+            label.loc[i] = 1
+        else:
+            label.loc[i] = 0
+    trainData = pd.concat([trueSample,falseSample])
+    
+    
+    #%% data to the model
+
+
+    
+    
+    def classProb(clf):
+        clf.fit(trainData, label)    
+        return clf
+    
+    clf_svm = svm.SVC(probability=True)
+    
+    #%% for svm
+    clf_svm = classProb(clf_svm)
+    clf_svm.predict(testSample)
+    a = clf_svm.predict_proba(testSample)
+    
+    #%% for the gnb
+    clf_gnb = GaussianNB()
+    clf_gnb = classProb(clf_gnb)
+    b = clf_gnb.predict(testSample)
+    print 'the time to caculcate the feature is %d s'%	(time.time() - startTime)
+    return clf_gnb.predict_proba(testSample)
+
+dog1 =  dataClassify(dogFolder[0],pathSum,16)
+dog2 =  dataClassify(dogFolder[1],pathSum,16)
+dog3 =  dataClassify(dogFolder[2],pathSum,16) 
+dog4 =  dataClassify(dogFolder[3],pathSum,16) 
+dog5 =  dataClassify(dogFolder[4],pathSum,15) 
+patient1 =  dataClassify(dogFolder[5],pathSum,15)     
+patient2 =  dataClassify(dogFolder[6],pathSum,24)   
+#sample.to_csv('seizrue detection.csv',index = False)
+#plt.figure()
+#plt.plot(trueSample['channel1'])
+#plt.figure()
+#plt.plot(falseSample['channel1'])
+#plt.figure()
+#plt.plot(testSample['channel1'])
+a = np.concatenate((dog1[:,1], dog2[:,1],dog3[:,1],dog4[:,1],dog5[:,1], \
+                        patient1[:,1],patient2[:,1]), axis=0)
+
+sample = pd.read_csv('C:/Users/Valued Customer/Desktop/Data/sampleSubmission.csv')
+sample['preictal'] = a
+sample.to_csv('seizureDetection.csv', index = False)
+
+
+
