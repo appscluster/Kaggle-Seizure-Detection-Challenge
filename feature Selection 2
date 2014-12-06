@@ -1,0 +1,275 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Nov 18 10:01:23 2014
+
+@author: Valued Customer
+"""
+
+import os
+from sklearn.cross_validation import LeaveOneOut
+from sklearn import cross_validation
+from sklearn.feature_selection import SelectKBest
+from sklearn.feature_selection import chi2
+from sklearn.ensemble import ExtraTreesClassifier
+import scipy
+
+classTypepath = scipy.io.loadmat('C:/Users/Valued Customer/Downloads/ADHD20130908simple.mat')
+jmi = scipy.io.loadmat('C:/Users/Valued Customer/Downloads/jmi.mat') #selectedIndices1
+mifs = scipy.io.loadmat('C:/Users/Valued Customer/Downloads/mifs.mat') #selectedIndices3
+mrmr = scipy.io.loadmat('C:/Users/Valued Customer/Downloads/mrmr.mat')  # selectedIndices2
+
+
+X = classTypepath['x']
+y = classTypepath['y']
+loo = LeaveOneOut(y.shape[0])        
+
+#%% Not feature selection
+
+#scores = cross_validation.cross_val_score(clf, X, y.ravel(), cv=loo)
+#print scores.mean()
+
+
+from sklearn.metrics import accuracy_score
+#%%
+import numpy as np
+#importances = clf.feature_importances_
+#indices = np.argsort(importances)[::-1]
+#
+##%% giving the first score
+#scores = cross_validation.cross_val_score(clf, X[:,:1], y.ravel(), cv=loo)
+#scoreFirst = scores.mean()
+#for i in range(2,len(indices)):
+#    feature = X[:,indices[:i]]
+#    scores = cross_validation.cross_val_score(clf, feature, y.ravel(), cv=loo)
+#    score = scores.mean()
+#    if score<=scoreFirst:
+#        print 'the score is %f and the feature number is %f' % (score,i-1)
+#        scoreFirst = score
+#   
+#
+#    scoreFirst = score
+
+error = []
+trueError = []
+globalError = 0
+errorStore = []
+trueErrorStore = []
+
+#for i in range(1,len(indices)):
+#    feature = X[:,indices[:i]]
+#    for train,test in loo:
+#
+#        y_pred = clf.fit(feature[train,:],y[train].ravel()).predict(feature[train,:])
+#        error.append(accuracy_score(y[train], y_pred))
+#        
+#        y_test = clf.predict(feature[test,:])
+#        trueError.append(accuracy_score(y[test].ravel(), y_test))
+#    errorStore.append(sum(error)/float(len(error)))
+#    trueErrorStore.append(sum(trueError)/float(len(trueError)))
+#    error = []
+#    trueError = []
+#import pylab as plt
+#plt.figure()
+#plt.plot(np.arange(len(errorStore)),trueError)
+#    errorUpdate= (sum(error)/float(len(error)))
+#    trueError = (sum(trueError)/float(len(trueError)))
+#    globalError = max(globalError,errorUpdate)
+#%% grid search:    
+from sklearn import svm, grid_search
+
+gamma_range = 10.0**np.arange(-5,4)
+C_range = 10.0**np.arange(-2,9)
+
+kernel = ('poly','rbf','sigmoid')
+svr = svm.SVC()
+param_grid = dict(gamma= gamma_range,C = C_range,kernel = kernel)
+scores = ['precision', 'recall']
+grid = grid_search.GridSearchCV(svr,param_grid,cv=10)
+
+clf = grid.fit(X,y.ravel())
+
+#%% do the feature selection
+# L1 based feature selection
+from sklearn import svm
+
+error = []
+trueError = []
+globalError = 0
+errorStore = []
+trueErrorStore = []
+clf = svm.SVC(C=100000.0, cache_size=200, class_weight=None, coef0=0.0, degree=3,
+  gamma=0.0001, kernel='sigmoid', max_iter=-1, probability=False,
+  random_state=None, shrinking=True, tol=0.001, verbose=False)
+
+from sklearn.svm import LinearSVC
+X_new = LinearSVC(C=1, penalty="l2", dual=False).fit_transform(X, y)
+feature = X_new
+print 'L1 based feature the feature number is %d' % feature.shape[1]
+error = []
+trueError = []
+for train,test in loo:
+
+    
+    y_pred = clf.fit(feature[train,:],y[train].ravel()).predict(feature[train,:])
+    error.append(accuracy_score(y[train], y_pred))
+    
+    y_test = clf.predict(feature[test,:])
+    trueError.append(accuracy_score(y[test].ravel(), y_test))
+
+print 'The train error is %f' % (sum(error)/float(len(error)))
+print 'the test error is %f' % (sum(trueError)/float(len(trueError)))
+
+    
+#%% filter method
+from sklearn.feature_selection import SelectKBest  
+from sklearn.feature_selection import chi2
+
+clf = svm.SVC(C=100000.0, cache_size=200, class_weight=None, coef0=0.0, degree=3,
+  gamma=0.0001, kernel='sigmoid', max_iter=-1, probability=False,
+  random_state=None, shrinking=True, tol=0.001, verbose=False)
+X_new = SelectKBest(chi2, k=12).fit_transform(X, y)
+feature = X_new
+print 'the filter method feature number is %d' % feature.shape[1]
+error = []
+trueError = []
+for train,test in loo:
+
+    
+    y_pred = clf.fit(feature[train,:],y[train].ravel()).predict(feature[train,:])
+    error.append(accuracy_score(y[train], y_pred))
+    
+    y_test = clf.predict(feature[test,:])
+    trueError.append(accuracy_score(y[test].ravel(), y_test))
+
+print 'The train error is %f' % (sum(error)/float(len(error)))
+print 'the test error is %f' % (sum(trueError)/float(len(trueError)))
+
+#%% do the random forest
+from sklearn.ensemble import ExtraTreesClassifier
+clf1 = ExtraTreesClassifier(max_features = 'sqrt')
+clf1.fit(X, y)
+importances = clf1.feature_importances_
+indices = np.argsort(importances)[::-1]
+#clf = None
+clf = svm.SVC(C=100000.0, cache_size=200, class_weight=None, coef0=0.0, degree=3,
+  gamma=0.0001, kernel='sigmoid', max_iter=-1, probability=False,
+  random_state=None, shrinking=True, tol=0.001, verbose=False)
+X_new = X[:,indices[:22]]
+error = []
+trueError = []
+feature = X_new
+print 'the random forest feature number is %d' % feature.shape[1]
+for train,test in loo:
+   
+    y_pred = clf.fit(feature[train,:],y[train].ravel()).predict(feature[train,:])
+    error.append(accuracy_score(y[train], y_pred))
+    
+    y_test = clf.predict(feature[test,:])
+    trueError.append(accuracy_score(y[test].ravel(), y_test))
+
+print 'The train error is %f' % (sum(error)/float(len(error)))
+print 'the test error is %f' % (sum(trueError)/float(len(trueError)))
+
+
+ #%% mrmr method   
+clf = svm.SVC(C=100000.0, cache_size=200, class_weight=None, coef0=0.0, degree=3,
+  gamma=0.0001, kernel='sigmoid', max_iter=-1, probability=False,
+  random_state=None, shrinking=True, tol=0.001, verbose=False)
+output1 = []
+output2 = []
+output3 = []
+trainOutput = []
+for i in range(45):
+    data = {}
+    number = i
+
+#    testOutput = []
+    print '############################'
+    print '############################'
+    print 'the number feature is %d' % i
+    data['X_mrmr'] = X[:,mrmr['selectedIndices2'][:number,0]-1]
+    data['X_mifs'] = X[:,mifs['selectedIndices3'][:number,0]-1]
+    data['X_jmi'] = X[:,jmi['selectedIndices1'][:number,0]-1]   
+        
+    for item in data:
+        x_new = data[item]     
+        feature = x_new
+        print 'the %s feature number is %d' % (item,feature.shape[1])
+        
+        error = []
+        trueError = []
+        clf = []
+        clf = svm.SVC(C=100000.0, cache_size=200, class_weight=None, coef0=0.0, degree=3,
+                      gamma=0.0001, kernel='sigmoid', max_iter=-1, probability=False,
+                      random_state=None, shrinking=True, tol=0.001, verbose=False)
+        for train,test in loo:
+           
+            y_pred = clf.fit(feature[train,:],y[train].ravel()).predict(feature[train,:])
+            error.append(accuracy_score(y[train], y_pred))
+            
+            y_test = clf.predict(feature[test,:])
+            trueError.append(accuracy_score(y[test].ravel(), y_test))
+    
+        print 'The train error is %f' % (sum(error)/float(len(error)))
+        print 'the test error is %f' % (sum(trueError)/float(len(trueError))) 
+        trainOutput.append((sum(error)/float(len(error))))
+        trainOutput.append((sum(trueError)/float(len(trueError))) )
+#    output[item] = trainOutput
+train_mrmr = [1-x for x in trainOutput[0::6]]
+test_mrmr = [1-x for x in trainOutput[1::6]]
+
+train_mifs = [1-x for x in trainOutput[2::6]]
+test_mifs = [1-x for x in trainOutput[3::6]]
+
+train_jmi = [1-x for x in trainOutput[4::6]]
+test_jmi = [1-x for x in trainOutput[5::6]]
+print 'the number mrmr of feature %d' % test_mrmr.index(min(test_mrmr))
+print 'the number mifs of feature %d' % test_mifs.index(min(test_mifs))
+print 'the number jmi of feature %d' % test_jmi.index(min(test_jmi))
+import pylab as plt
+number = 45
+plt.figure()
+plt.plot(range(number),train_mrmr,label = 'train error')
+plt.hold(True)
+plt.plot(range(number),test_mrmr,color = 'r',label = 'test error')
+plt.legend(loc=3)
+plt.title('mrmr the optimal test accuray is %f, the true accuray is %f' %(1-min(test_mrmr),1-train_mrmr[test_mrmr.index(min(test_mrmr))]))
+
+plt.show()
+
+plt.figure()
+plt.plot(range(number),train_mifs,label = 'train error')
+plt.hold(True)
+plt.plot(range(number),test_mifs,color = 'r',label = 'test error')
+plt.legend(loc=3)
+plt.title('mifs')
+plt.title('mifs the optimal test accuray is %f, the true accuray is %f' %(1-min(test_mifs),1-train_mifs[test_mifs.index(min(test_mifs))]))
+
+
+plt.figure()
+plt.plot(range(number),train_jmi,label = 'train error')
+plt.hold(True)
+plt.plot(range(number),test_jmi,color = 'r',label = 'test error')
+plt.legend(loc=3)
+plt.title('JMI')
+plt.title('JMI the optimal test accuray is %f, the true accuray is %f' %(1-min(test_jmi),1-train_jmi[test_jmi.index(min(test_jmi))]))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
